@@ -22,7 +22,7 @@
     --pink: #f472b6;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
-  body { background: var(--bg); padding: 32px; min-height: 100vh; color: var(--text); }
+  body { background: var(--bg); padding: 32px; min-height: 100vh; color: var(--text); overflow-x: hidden; }
   .diagram { max-width: 1040px; margin: 0 auto; }
   .page-title { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 4px; letter-spacing: -0.01em; }
   .page-title .os { background:linear-gradient(100deg,var(--accent),var(--teal)); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -173,8 +173,19 @@
 
   .footer { margin-top: 24px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; line-height: 1.8; }
   .footer b { color: var(--text); }
-  @media (max-width: 760px) { .rt-grid, .agents-grid, .pwa-grid, .cap-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 500px) { .agents-grid, .infra-grid, .rt-grid, .cap-grid, .path-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) {
+    body { padding: 20px; }
+    .section { min-width: 0 !important; }
+    .rt-grid, .agents-grid, .pwa-grid, .cap-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 500px) {
+    body { padding: 12px 14px; }
+    .section, .box { min-width: 0 !important; width: 100%; }
+    .chain { gap: 4px; }
+    .node { font-size: 11px; padding: 6px 9px; }
+    .arr { font-size: 12px; }
+    .agents-grid, .infra-grid, .rt-grid, .cap-grid, .path-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
