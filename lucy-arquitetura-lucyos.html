@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LucyOS — Arquitetura de Sistema</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --text: #e2e8f0;
+    --muted: #8892aa;
+    --accent: #6c8ef7;
+    --accent2: #a78bfa;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --orange: #fb923c;
+    --teal: #2dd4bf;
+    --pink: #f472b6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+  body { background: var(--bg); padding: 32px; min-height: 100vh; color: var(--text); }
+  .diagram { max-width: 1040px; margin: 0 auto; }
+  .page-title { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 4px; letter-spacing: -0.01em; }
+  .page-title .os { background:linear-gradient(100deg,var(--accent),var(--teal)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+  .lane { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin: 22px 0 9px; display: flex; align-items: center; gap: 7px; }
+  .lane .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .lane .dot-teal { background: var(--teal); }
+  .lane .dot-purple { background: var(--accent2); }
+  .lane .dot-orange { background: var(--orange); }
+  .lane .dot-green { background: var(--green); }
+
+  .row { display: flex; gap: 12px; align-items: stretch; margin-bottom: 12px; flex-wrap: wrap; }
+  .box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; position: relative; }
+  .box-label { font-size: 10px; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 4px; }
+  .box-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .box-sub { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+  .badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-top: 4px; margin-right: 3px; }
+  .badge-green  { background: rgba(74,222,128,0.12);  color: var(--green);   border: 1px solid rgba(74,222,128,0.3); }
+  .badge-blue   { background: rgba(108,142,247,0.12); color: var(--accent);  border: 1px solid rgba(108,142,247,0.3); }
+  .badge-purple { background: rgba(167,139,250,0.12); color: var(--accent2); border: 1px solid rgba(167,139,250,0.3); }
+  .badge-orange { background: rgba(251,146,60,0.12);  color: var(--orange);  border: 1px solid rgba(251,146,60,0.3); }
+  .badge-teal   { background: rgba(45,212,191,0.12);  color: var(--teal);    border: 1px solid rgba(45,212,191,0.3); }
+  .badge-yellow { background: rgba(251,191,36,0.12);  color: var(--yellow);  border: 1px solid rgba(251,191,36,0.3); }
+  .badge-pink   { background: rgba(244,114,182,0.12); color: var(--pink);    border: 1px solid rgba(244,114,182,0.3); }
+
+  .arrow { display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--muted); flex-shrink: 0; padding: 0 2px; }
+  .flow-down { font-size: 13px; color: var(--muted); margin: 2px 0 6px; display: flex; align-items: center; gap: 6px; }
+  .flow-label { font-size: 10px; color: var(--muted); }
+
+  .section { border: 1px solid var(--border); border-radius: 12px; padding: 15px; background: var(--surface2); flex: 1; min-width: 280px; }
+  .section-title { font-size: 11px; font-weight: 700; color: var(--text); letter-spacing: 0.04em; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .section-title .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .section-title .dot-teal   { background: var(--teal); }
+  .section-title .dot-purple { background: var(--accent2); }
+  .section-title .dot-orange { background: var(--orange); }
+  .section-meta { font-size: 10px; color: var(--muted); font-weight: 500; margin-left: auto; }
+
+  .divider { width: 100%; height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* ── PWA expanded ── */
+  .pwa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pwa-col { display: flex; flex-direction: column; gap: 10px; }
+  .pwa-block { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; }
+  .pwa-block-title { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 8px; }
+  .screen-list { display: flex; flex-direction: column; gap: 7px; }
+  .screen { display: flex; align-items: flex-start; gap: 9px; }
+  .screen-ic { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; line-height: 1.3; }
+  .screen-route { font-size: 11px; font-weight: 700; color: var(--accent); min-width: 84px; flex-shrink: 0; padding-top: 2px; }
+  .screen-desc { font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .svc-list { display: flex; flex-direction: column; gap: 5px; }
+  .svc { display: flex; align-items: flex-start; gap: 8px; }
+  .svc-name { font-size: 11px; font-weight: 700; color: var(--text); min-width: 110px; flex-shrink: 0; }
+  .svc-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .infra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .infra-item { font-size: 10px; color: var(--muted); padding: 5px 8px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border); line-height: 1.4; }
+  .infra-item b { color: var(--text); font-weight: 600; display: block; margin-bottom: 1px; }
+  .mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+  .mini { display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; }
+  .mini .mi { font-size: 19px; width: 24px; text-align: center; flex-shrink: 0; }
+  .mini .ml { font-size: 11.5px; font-weight: 600; color: var(--text); line-height: 1.25; }
+
+  /* ── Brain hub ── */
+  .hub { border-color: rgba(108,142,247,0.45); background: linear-gradient(135deg, rgba(108,142,247,0.05), rgba(167,139,250,0.04)); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 11px; padding: 5px 9px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  .chip b { color: var(--accent); font-weight: 600; }
+  .unit-ic { width: 48px; height: 48px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; background: linear-gradient(145deg, rgba(108,142,247,0.22), rgba(45,212,191,0.12)); border: 1px solid rgba(108,142,247,0.3); }
+  .cap-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .cap { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text); padding: 8px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; line-height: 1.25; }
+  .cap .ci { font-size: 15px; flex-shrink: 0; }
+  .path-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .path { display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2); }
+  .path .pi2 { font-size: 19px; flex-shrink: 0; }
+  .path b { font-size: 12.5px; color: var(--text); display: block; }
+  .path .ps { font-size: 10.5px; color: var(--muted); }
+  .path-orange { border-color: rgba(251,146,60,0.35); }
+  .path-blue { border-color: rgba(108,142,247,0.35); }
+
+  /* ── Runtimes ── */
+  .rt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .rt { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 11px 12px; }
+  .rt-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; display: flex; align-items: center; gap: 7px; }
+  .rt-name .e { font-size: 18px; }
+  .rt-tech { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+  .rt-hermes  { border-color: rgba(251,191,36,0.35); }
+  .rt-pi      { border-color: rgba(45,212,191,0.4); }
+  .rt-paperclip { border-color: rgba(108,142,247,0.35); }
+  .rt-umbrela { border-color: rgba(167,139,250,0.4); }
+  .rt-cloud   { border-color: rgba(244,114,182,0.32); }
+
+  /* ── Agents ── */
+  .agents-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .agent { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  .agent .an { font-size: 12px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .agent .an .e { font-size: 15px; }
+  .agent .ar { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .rt-tag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; display: inline-block; margin-top: 5px; }
+  .rt-tag.hermes    { background: rgba(251,191,36,0.14);   color: var(--yellow); }
+  .rt-tag.pi        { background: rgba(45,212,191,0.14);   color: var(--teal); }
+  .rt-tag.paperclip { background: rgba(108,142,247,0.14);  color: var(--accent); }
+
+  /* ── Organização de agentes ── */
+  .org-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .org-card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; }
+  .org-card .on { font-size: 12px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .org-card .oa { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 4px; font-weight: 700; }
+  .org-card .od { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin-top: 4px; }
+  .ext-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .ext-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  .ext-card .xn { font-size: 11.5px; font-weight: 800; color: var(--text); }
+  .ext-card .xd { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .gov-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .gov { background: rgba(15,17,23,0.35); border: 1px solid var(--border); border-radius: 9px; padding: 10px; }
+  .gov b { color: var(--text); font-size: 11.5px; display: block; margin-bottom: 4px; }
+  .gov span { color: var(--muted); font-size: 10.5px; line-height: 1.45; }
+
+  /* ── Vault ── */
+  .vault { background: linear-gradient(135deg, rgba(167,139,250,0.06), rgba(108,142,247,0.06)); border-color: rgba(167,139,250,0.3); }
+  .vault .box-name { color: var(--accent2); }
+
+  /* ── Governance ── */
+  ul.tight { margin: 0; padding-left: 16px; }
+  ul.tight li { font-size: 11px; color: var(--muted); line-height: 1.75; }
+  ul.tight li b { color: var(--text); font-weight: 600; }
+
+  /* ── Fluxos de execução (evolução) ── */
+  .flow { border: 1px solid var(--border); border-radius: 12px; background: var(--surface2); padding: 16px 16px 14px; margin-bottom: 11px; }
+  .flow-head { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+  .flow-tag { font-size: 12px; font-weight: 800; color: var(--bg); background: linear-gradient(135deg, var(--accent), var(--teal)); width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .flow-title { font-size: 15px; font-weight: 700; }
+  .chain { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .node { font-size: 12.5px; font-weight: 700; padding: 8px 13px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; gap: 7px; }
+  .node .e { font-size: 15px; }
+  .arr { color: var(--muted); font-size: 15px; font-weight: 700; }
+  .n-blue   { border-color: rgba(108,142,247,0.5); color: #cdd9ff; }
+  .n-purple { border-color: rgba(167,139,250,0.5); color: #e0d6ff; }
+  .n-yellow { border-color: rgba(251,191,36,0.5);  color: #ffe9b3; }
+  .n-teal   { border-color: rgba(45,212,191,0.5);  color: #bff4ec; }
+  .n-green  { border-color: rgba(74,222,128,0.5);  color: #c7f5d6; }
+  .flow-note { font-size: 12px; color: var(--muted); margin-top: 13px; line-height: 1.6; }
+  .flow-note b { color: var(--text); font-weight: 600; }
+  .example { margin-top: 12px; border-left: 2px solid var(--teal); padding: 8px 0 8px 13px; }
+  .example .q { font-size: 13px; color: var(--text); font-style: italic; }
+  .example .a { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.6; }
+
+  .footer { margin-top: 24px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; line-height: 1.8; }
+  .footer b { color: var(--text); }
+  @media (max-width: 760px) { .rt-grid, .agents-grid, .pwa-grid, .cap-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 500px) { .agents-grid, .infra-grid, .rt-grid, .cap-grid, .path-grid, .org-grid, .ext-grid, .gov-strip { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="diagram">
+  <div class="page-title"><span class="os">LucyOS</span> — Arquitetura de Sistema</div>
+  <div class="page-sub">Camadas reais, fluxos de execução e organização de agentes · 2026</div>
+
+  <!-- ══════════════ CAMADA DE ACESSO — PWA ══════════════ -->
+  <div class="lane"><span class="dot dot-green"></span> Camada de acesso — PWA</div>
+  <div class="row">
+
+    <div class="box" style="min-width:170px; max-width:190px;">
+      <div class="box-label">Dispositivo</div>
+      <div class="box-name" style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">📱</span> Mobile / Desktop</div>
+      <div class="box-sub">Instalável como aplicativo</div>
+      <div class="divider"></div>
+      <span class="badge badge-green">Seguro</span>
+      <span class="badge badge-green">Funciona offline</span>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="section" style="flex:1; min-width:500px; border-color:rgba(108,142,247,0.3);">
+      <div class="section-title">
+        <div class="dot"></div> 📱 PWA — o aplicativo da Lucy
+        <span class="section-meta">a tela por onde você usa tudo</span>
+      </div>
+
+      <div class="pwa-grid">
+
+        <!-- Telas -->
+        <div class="pwa-col">
+          <div class="pwa-block">
+            <div class="pwa-block-title">Telas do aplicativo</div>
+            <div class="screen-list">
+              <div class="screen"><span class="screen-ic">📊</span><span class="screen-route">Painel</span><span class="screen-desc">Visão geral: serviços, tarefas recentes e Paperclip</span></div>
+              <div class="screen"><span class="screen-ic">💬</span><span class="screen-route">Conversa</span><span class="screen-desc">Fala e texto com a Lucy, com voz</span></div>
+              <div class="screen"><span class="screen-ic">🤖</span><span class="screen-route">Agentes</span><span class="screen-desc">Ativar, criar e remover agentes</span></div>
+              <div class="screen"><span class="screen-ic">⚡</span><span class="screen-route">Tarefas</span><span class="screen-desc">Acompanhar, executar e revisar — aprovar ou recusar</span></div>
+              <div class="screen"><span class="screen-ic">🖥️</span><span class="screen-route">Sistema</span><span class="screen-desc">Status de todos os serviços em tempo real</span></div>
+              <div class="screen"><span class="screen-ic">🧠</span><span class="screen-route">Memória</span><span class="screen-desc">Decisões e atividades recentes</span></div>
+              <div class="screen"><span class="screen-ic">📎</span><span class="screen-route">Paperclip</span><span class="screen-desc">Tarefas, pendências e agentes</span></div>
+              <div class="screen"><span class="screen-ic">⚙️</span><span class="screen-route">Configurações</span><span class="screen-desc">Preferências e conta</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- direita -->
+        <div class="pwa-col">
+          <div class="pwa-block">
+            <div class="pwa-block-title">O que o app faz</div>
+            <div class="mini-grid">
+              <div class="mini"><span class="mi">💬</span><span class="ml">Conversa</span></div>
+              <div class="mini"><span class="mi">🔒</span><span class="ml">Segurança</span></div>
+              <div class="mini"><span class="mi">🕘</span><span class="ml">Histórico</span></div>
+              <div class="mini"><span class="mi">🎙️</span><span class="ml">Voz</span></div>
+            </div>
+          </div>
+
+          <div class="pwa-block">
+            <div class="pwa-block-title">Em tempo real</div>
+            <div class="mini-grid">
+              <div class="mini"><span class="mi">👤</span><span class="ml">Você conectado</span></div>
+              <div class="mini"><span class="mi">🩺</span><span class="ml">Saúde dos serviços</span></div>
+              <div class="mini"><span class="mi">⚡</span><span class="ml">Tarefas em curso</span></div>
+            </div>
+          </div>
+
+          <div class="pwa-block">
+            <div class="pwa-block-title">Recursos</div>
+            <div class="mini-grid">
+              <div class="mini"><span class="mi">📴</span><span class="ml">Offline</span></div>
+              <div class="mini"><span class="mi">📲</span><span class="ml">App nativo</span></div>
+              <div class="mini"><span class="mi">🌐</span><span class="ml">PT · EN · ES</span></div>
+              <div class="mini"><span class="mi">🔔</span><span class="ml">Notificações</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-down">↓ <span class="flow-label">seus pedidos passam por um único caminho seguro</span></div>
+
+  <!-- ══════════════ BRIDGE ══════════════ -->
+  <div class="lane"><span class="dot"></span> Camada de integração</div>
+  <div class="row">
+    <div class="box" style="flex:1; min-width:280px;">
+      <div style="display:flex; gap:14px; align-items:flex-start;">
+        <div class="unit-ic">🔌</div>
+        <div style="flex:1; min-width:0;">
+          <div class="box-label">Porta de entrada</div>
+          <div class="box-name">Bridge</div>
+          <div class="box-sub">Recebe tudo o que vem do aplicativo, cuida da segurança, trata a voz e <b style="color:var(--text)">encaminha cada pedido para o Brain</b>.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="cap-row">
+        <span class="cap"><span class="ci">💬</span> Conversa</span>
+        <span class="cap"><span class="ci">🔒</span> Login e segurança</span>
+        <span class="cap"><span class="ci">🎙️</span> Voz: fala ↔ texto</span>
+        <span class="cap"><span class="ci">📲</span> Serve o app</span>
+      </div>
+      <div class="box-label" style="margin:13px 0 7px;">Dois caminhos a partir daqui</div>
+      <div class="path-grid">
+        <div class="path path-orange"><span class="pi2">✨</span><div><b>Conversa direta com a Lucy</b><span class="ps">resposta na hora</span></div></div>
+        <div class="path path-blue"><span class="pi2">🧠</span><div><b>Tarefas e governança</b><span class="ps">passam pelo Brain</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-down">↓ <span class="flow-label">o cérebro decide quem cuida do pedido</span></div>
+
+  <!-- ══════════════ BRAIN ══════════════ -->
+  <div class="lane"><span class="dot"></span> Hub central — o cérebro que orquestra</div>
+  <div class="row">
+    <div class="section hub">
+      <div style="display:flex; gap:14px; align-items:flex-start; margin-bottom:14px;">
+        <div class="unit-ic" style="font-size:28px;">🧠</div>
+        <div style="flex:1; min-width:0;">
+          <div class="box-label">Hub central</div>
+          <div class="box-name" style="font-size:16px;">Brain — o cérebro do LucyOS</div>
+          <div class="box-sub">Entende o pedido, escolhe quem faz, aplica políticas e mantém o controle: conversa simples vai para Lucy; missão complexa vai para a organização de agentes.</div>
+        </div>
+      </div>
+      <div class="cap-grid">
+        <span class="cap"><span class="ci">📇</span> Registro de agentes</span>
+        <span class="cap"><span class="ci">🧭</span> Roteia as tarefas</span>
+        <span class="cap"><span class="ci">🛡️</span> Políticas e aprovação</span>
+        <span class="cap"><span class="ci">🔔</span> Escala para você</span>
+        <span class="cap"><span class="ci">🩺</span> Saúde dos serviços</span>
+        <span class="cap"><span class="ci">🗂️</span> Histórico de tarefas</span>
+        <span class="cap"><span class="ci">💲</span> Custos e desempenho</span>
+        <span class="cap"><span class="ci">🔄</span> Ciclos autônomos</span>
+      </div>
+      <div class="divider"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <span class="flow-label" style="color:var(--text);">Conecta com →</span>
+        <span class="badge badge-yellow">✨ Hermes / Lucy</span>
+        <span class="badge badge-teal">🛠️ Pi</span>
+        <span class="badge badge-blue">📎 Paperclip</span>
+        <span class="badge badge-purple">🗄️ Memória</span>
+        <span class="badge badge-pink">☁️ Cloud</span>
+        <span class="badge badge-green">🧩 Ferramentas externas</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-down">↓ <span class="flow-label">cada pedido vai para o especialista certo</span></div>
+
+  <!-- ══════════════ EXECUTORES ══════════════ -->
+  <div class="lane"><span class="dot dot-teal"></span> Especialistas que executam</div>
+  <div class="row">
+    <div class="section">
+      <div class="rt-grid">
+
+        <div class="rt rt-hermes">
+          <div class="rt-name"><span class="e">✨</span> Hermes / Lucy</div>
+          <div class="rt-tech">Conversa e inteligência</div>
+          <div class="box-sub">A persona da Lucy, suas habilidades e rotinas. Também atende pelo Telegram.</div>
+          <span class="badge badge-orange">Telegram</span>
+          <span class="badge badge-yellow">habilidades · rotinas</span>
+        </div>
+
+        <div class="rt rt-pi">
+          <div class="rt-name"><span class="e">🛠️</span> Pi</div>
+          <div class="rt-tech">O executor — faz o trabalho</div>
+          <div class="box-sub">Cria, edita e realiza tarefas de verdade. Opera subagentes com permissão por-agente. Sempre <b style="color:var(--text)">sob aprovação</b>.</div>
+          <span class="badge badge-teal">cria e edita</span>
+          <span class="badge badge-teal">realiza tarefas</span>
+        </div>
+
+        <div class="rt rt-paperclip">
+          <div class="rt-name"><span class="e">📎</span> Paperclip</div>
+          <div class="rt-tech">Governança e acompanhamento</div>
+          <div class="box-sub">Acompanha tarefas, agentes e pendências. Não executa — supervisiona e audita.</div>
+          <span class="badge badge-blue">tarefas</span>
+          <span class="badge badge-blue">auditoria</span>
+        </div>
+
+        <div class="rt rt-umbrela">
+          <div class="rt-name"><span class="e">🔎</span> Umbrela</div>
+          <div class="rt-tech">Conhecimento próprio</div>
+          <div class="box-sub">Busca respostas na base de conhecimento da casa.</div>
+          <span class="badge badge-purple">base própria</span>
+        </div>
+
+        <div class="rt rt-cloud">
+          <div class="rt-name"><span class="e">☁️</span> Cloud</div>
+          <div class="rt-tech">Reforço de inteligência</div>
+          <div class="box-sub">Entra quando a tarefa exige mais ou quando algum serviço está indisponível.</div>
+          <span class="badge badge-pink">reforço</span>
+        </div>
+
+        <div class="rt">
+          <div class="rt-name"><span class="e">🧩</span> Ferramentas</div>
+          <div class="rt-tech">Automações e integrações</div>
+          <div class="box-sub">Conecta a Lucy a outros aplicativos e ferramentas externas.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ DOCTOR — saúde / supervisão ══════════════ -->
+  <div class="lane"><span class="dot dot-green"></span> Saúde do sistema</div>
+  <div class="row">
+    <div class=”box” style=”flex:1; min-width:300px; border-color:rgba(74,222,128,0.35); background:linear-gradient(135deg, rgba(74,222,128,0.05), rgba(45,212,191,0.04));”>
+      <div style=”display:flex; gap:14px; align-items:flex-start;”>
+        <div class=”unit-ic” style=”background:linear-gradient(145deg, rgba(74,222,128,0.22), rgba(45,212,191,0.12)); border-color:rgba(74,222,128,0.3);”>🩺</div>
+        <div style=”flex:1; min-width:0;”>
+          <div class=”box-label”>Diagnóstico read-only</div>
+          <div class=”box-name”>LucyOS Doctor</div>
+          <div class=”box-sub”>Faz o “check-up” da plataforma a qualquer momento: confere se todos os serviços estão no ar e aponta o que precisa de atenção. <b style=”color:var(--text)”>Só observa — nunca reinicia, corrige ou altera nada.</b></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <span class="badge badge-green">Serviços no ar</span>
+      <span class="badge badge-blue">Integridade do código</span>
+      <span class="badge badge-purple">Segurança</span>
+      <span class="badge badge-yellow">Relatório claro</span>
+    </div>
+    <div class="box" style="min-width:210px; max-width:240px; border-color:rgba(74,222,128,0.2);">
+      <div class="box-label">Veredito</div>
+      <div class="box-sub" style="margin-top:7px;"><span style="color:var(--green)">●</span> &nbsp;Saudável — tudo funcionando</div>
+      <div class="box-sub"><span style="color:var(--yellow)">●</span> &nbsp;Atenção — algo a revisar</div>
+      <div class="box-sub"><span style="color:var(--red)">●</span> &nbsp;Fora do ar — serviço crítico parado</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ AGENTES ══════════════ -->
+  <div class="lane"><span class="dot"></span> A equipe de agentes</div>
+  <div class="row">
+    <div class="section">
+      <div class="agents-grid">
+        <div class="agent"><div class="an"><span class="e">💬</span> Assistente</div><div class="ar">Conversa, organiza e direciona os pedidos.</div><span class="rt-tag hermes">Lucy</span></div>
+        <div class="agent"><div class="an"><span class="e">🧭</span> Arquiteto</div><div class="ar">Decisões técnicas e evolução da plataforma.</div><span class="rt-tag hermes">Lucy</span></div>
+        <div class="agent"><div class="an"><span class="e">🎨</span> Frontend</div><div class="ar">Cuida do aplicativo e das telas.</div><span class="rt-tag pi">Pi</span></div>
+        <div class="agent"><div class="an"><span class="e">⚙️</span> Backend</div><div class="ar">Cuida dos bastidores e da voz.</div><span class="rt-tag pi">Pi</span></div>
+        <div class="agent"><div class="an"><span class="e">🚀</span> Operações</div><div class="ar">Ambientes e implantação. Exige aprovação.</div><span class="rt-tag pi">Pi</span></div>
+        <div class="agent"><div class="an"><span class="e">📎</span> Governança</div><div class="ar">Acompanha tarefas e pendências.</div><span class="rt-tag paperclip">Paperclip</span></div>
+        <div class="agent"><div class="an"><span class="e">🧠</span> Memória</div><div class="ar">Resume e guarda o que importa.</div><span class="rt-tag hermes">Lucy</span></div>
+        <div class="agent"><div class="an"><span class="e">🩺</span> Auditor</div><div class="ar">Vigia a saúde de tudo o tempo todo.</div><span class="rt-tag hermes">Lucy</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ ALPHA21 — ORGANIZAÇÃO MULTIAGENTE ══════════════ -->
+  <div class="lane"><span class="dot dot-teal"></span> Organização hierárquica de agentes</div>
+  <div class="row">
+    <div class="section" style="border-color:rgba(45,212,191,0.35); background:linear-gradient(135deg, rgba(45,212,191,0.05), rgba(108,142,247,0.04));">
+      <div class="section-title">
+        <div class="dot dot-teal"></div> 🧑‍💻 Gerentes, times e subagentes Pi
+        <span class="section-meta">Fases 1–7 concluídas · núcleo @gotgenes em migração</span>
+      </div>
+      <div class="flow-note" style="margin-top:0;">
+        O LucyOS opera como uma <b>organização de agentes</b>: Cláudio pede, Lucy contextualiza, o Brain classifica, um gerente assume a missão, agentes especialistas executam com escopo limitado, Lucy revisa, Paperclip governa e o Vault preserva a memória.
+      </div>
+      <div class="org-grid" style="margin-top:12px;">
+        <div class="org-card"><div class="on">🧭 Alfrald</div><div class="oa">Projetos</div><div class="od">Demanda → PRD → revisão → backlog → execução técnica.</div></div>
+        <div class="org-card"><div class="on">📚 Biblios</div><div class="oa">Biblioteca/Vault</div><div class="od">Busca, escrita controlada, anti-duplicação e padrões.</div></div>
+        <div class="org-card"><div class="on">🌅 Aurora</div><div class="oa">Marketing</div><div class="od">Posicionamento, campanhas, copy, SEO e métricas.</div></div>
+        <div class="org-card"><div class="on">🎬 Maya</div><div class="oa">Mídias sociais</div><div class="od">Pautas, roteiros, vídeos, posts e checklist de publicação.</div></div>
+        <div class="org-card"><div class="on">🔬 Einstein</div><div class="oa">Pesquisa</div><div class="od">Radar científico, papers, conselho crítico e oportunidades.</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="chain">
+        <span class="node n-green"><span class="e">👤</span>Cláudio</span><span class="arr">→</span>
+        <span class="node n-yellow"><span class="e">✨</span>Lucy</span><span class="arr">→</span>
+        <span class="node n-purple"><span class="e">🧠</span>Brain</span><span class="arr">→</span>
+        <span class="node n-teal"><span class="e">🧑‍💻</span>Gerente</span><span class="arr">→</span>
+        <span class="node n-teal"><span class="e">🛠️</span>Subagentes Pi</span><span class="arr">→</span>
+        <span class="node n-blue"><span class="e">📎</span>Paperclip</span><span class="arr">→</span>
+        <span class="node n-green"><span class="e">✋</span>Aprovação</span>
+      </div>
+      <div class="gov-strip">
+        <div class="gov"><b>@gotgenes</b><span>Núcleo de subagentes adotado para permissão por-agente; roda isolado para não conflitar com outros cores.</span></div>
+        <div class="gov"><b>allow · ask · deny</b><span>Cada agente declara permissões próprias por tool/surface: leitura, escrita, bash e paths.</span></div>
+        <div class="gov"><b>HITL validado</b><span>Permissão <i>ask</i> não auto-aprova: para, aguarda decisão e só executa após aprovação.</span></div>
+        <div class="gov"><b>Brain + Paperclip</b><span><code>/tasks/route</code> cria task, issue, active-run e gate de aprovação quando há risco.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ ALPHA21 EXTENSION ══════════════ -->
+  <div class="lane"><span class="dot dot-purple"></span> Segunda camada de orquestradores</div>
+  <div class="row">
+    <div class="section" style="border-color:rgba(167,139,250,0.35);">
+      <div class="section-title">
+        <div class="dot dot-purple"></div> 🧩 Extensão proposta — confiabilidade, operação e vida diária
+        <span class="section-meta">reavaliação 2026-06-22 · ativação em fases</span>
+      </div>
+      <div class="flow-note" style="margin-top:0;">
+        A extensão complementa o núcleo de gerentes sem substituí-lo — 13 orquestradores organizados em camadas. <b>Fase A</b> (ativas): Athena · Atlas · Vulcan. <b>Fase B</b> (ativas): Chronos · Hermes Curator · Higgins. <b>Fase C+</b>: restantes, pendentes de aprovação e gates de PT.
+      </div>
+      <div class="ext-grid" style="margin-top:12px;">
+        <div class="ext-card"><div class="xn">🛡️ Athena</div><div class="xd">Qualidade, testes, aceite e evidência real.</div></div>
+        <div class="ext-card"><div class="xn">🏛️ Atlas</div><div class="xd">Arquitetura, contratos, ADRs e migrações.</div></div>
+        <div class="ext-card"><div class="xn">⚒️ Vulcan</div><div class="xd">DevOps, ambientes, healthcheck e recovery.</div></div>
+        <div class="ext-card"><div class="xn">⏳ Chronos</div><div class="xd">Rotina, prioridades, agenda e fechamento do dia.</div></div>
+        <div class="ext-card"><div class="xn">🧠 Hermes Curator</div><div class="xd">Vault, session logs, skills e memória SQLite.</div></div>
+        <div class="ext-card"><div class="xn">🇬🇧 Higgins</div><div class="xd">Professor de inglês: conversa, pronúncia e progresso.</div></div>
+        <div class="ext-card"><div class="xn">📖 Sophia</div><div class="xd">Estudos, trilhas, sínteses e aplicação prática.</div></div>
+        <div class="ext-card"><div class="xn">🌍 Gaia</div><div class="xd">Vida prática, documentos, mudança e burocracias.</div></div>
+        <div class="ext-card"><div class="xn">☿ Mercury</div><div class="xd">Comunicação, rascunhos, follow-ups e tom.</div></div>
+        <div class="ext-card"><div class="xn">🎙️ Orpheus</div><div class="xd">STT/TTS, áudio da Lucy, transcrição e entrega.</div></div>
+        <div class="ext-card"><div class="xn">🚦 Janus</div><div class="xd">Riscos, trade-offs, gates e decisões.</div></div>
+        <div class="ext-card"><div class="xn">🔭 Argus</div><div class="xd">Observabilidade & FinOps do enxame de agentes.</div></div>
+        <div class="ext-card"><div class="xn">✍️ Calíope</div><div class="xd">Autoria, editorial e produção de conteúdo escrito.</div></div>
+      </div>
+      <div class="divider"></div>
+      <span class="badge badge-green">Fase A + B ativas</span>
+      <span class="badge badge-purple">catálogo no Vault</span>
+      <span class="badge badge-teal">Fase C+ aguarda gates</span>
+      <span class="badge badge-yellow">ações sensíveis exigem aprovação</span>
+      <span class="badge badge-blue">registro futuro no Brain</span>
+    </div>
+  </div>
+
+  <!-- ══════════════ MEMÓRIA ══════════════ -->
+  <div class="lane"><span class="dot dot-purple"></span> Memória durável — a fonte da verdade</div>
+  <div class="row">
+    <div class="box vault" style="flex:1; min-width:300px;">
+      <div style="display:flex; gap:14px; align-items:flex-start;">
+        <div class="unit-ic" style="background:linear-gradient(145deg, rgba(167,139,250,0.22), rgba(108,142,247,0.12)); border-color:rgba(167,139,250,0.3);">🗄️</div>
+        <div style="flex:1; min-width:0;">
+          <div class="box-label">Obsidian Vault</div>
+          <div class="box-name">Memória da Lucy</div>
+          <div class="box-sub">Guarda decisões, projetos, histórico e contexto. Nunca esquece — é a referência de tudo.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <span class="badge badge-purple">decisões</span>
+      <span class="badge badge-purple">projetos</span>
+      <span class="badge badge-purple">histórico</span>
+      <span class="badge badge-purple">contexto</span>
+    </div>
+    <div class="box" style="flex:1; min-width:300px; border-color:rgba(108,142,247,0.35);">
+      <div style="display:flex; gap:14px; align-items:flex-start;">
+        <div class="unit-ic" style="background:linear-gradient(145deg, rgba(108,142,247,0.22), rgba(45,212,191,0.12)); border-color:rgba(108,142,247,0.3);">📝</div>
+        <div style="flex:1; min-width:0;">
+          <div class="box-label">Atualizada automaticamente</div>
+          <div class="box-name" style="color:var(--accent);">Registro do que acontece</div>
+          <div class="box-sub">A cada tarefa, o Brain anota o que foi feito e por quê — sem você precisar pedir.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <span class="badge badge-blue">atividades</span>
+      <span class="badge badge-blue">decisões</span>
+      <span class="badge badge-blue">pendências</span>
+    </div>
+  </div>
+
+  <!-- ══════════════ FLUXOS ══════════════ -->
+  <div class="lane"><span class="dot dot-orange"></span> Fluxos de execução</div>
+
+  <div class="flow">
+    <div class="flow-head"><span class="flow-tag">1</span><span class="flow-title">Conversa simples</span></div>
+    <div class="chain">
+      <span class="node n-green"><span class="e">👤</span>Você</span><span class="arr">→</span>
+      <span class="node n-blue"><span class="e">🔌</span>Bridge</span><span class="arr">→</span>
+      <span class="node n-purple"><span class="e">🧠</span>Brain</span><span class="arr">→</span>
+      <span class="node n-yellow"><span class="e">✨</span>Lucy</span><span class="arr">→</span>
+      <span class="node n-green"><span class="e">💬</span>Resposta</span>
+    </div>
+    <div class="flow-note">Você manda uma mensagem, o <b>Brain</b> percebe que é uma conversa e a <b>Lucy</b> responde na hora. Se valer a pena lembrar, fica guardado na memória.</div>
+  </div>
+
+  <div class="flow">
+    <div class="flow-head"><span class="flow-tag">2</span><span class="flow-title">Tarefa com agente</span></div>
+    <div class="chain">
+      <span class="node n-green"><span class="e">👤</span>Você</span><span class="arr">→</span>
+      <span class="node n-purple"><span class="e">🧠</span>Brain</span><span class="arr">→</span>
+      <span class="node n-teal"><span class="e">🧑‍💻</span>Gerente</span><span class="arr">→</span>
+      <span class="node n-blue"><span class="e">📋</span>Paperclip</span><span class="arr">+</span>
+      <span class="node n-teal"><span class="e">🛠️</span>Pi/Subagentes</span><span class="arr">→</span>
+      <span class="node n-green"><span class="e">✋</span>Você aprova</span><span class="arr">→</span>
+      <span class="node n-green"><span class="e">✅</span>Pronto</span>
+    </div>
+    <div class="example">
+      <div class="q">“Lucy, crie um plano para refatorar o app.”</div>
+      <div class="a">O <b style="color:#e2e8f0">Brain</b> entende que é uma tarefa de engenharia, roteia para um <b style="color:#e2e8f0">gerente</b>, abre registro no <b style="color:#e2e8f0">Paperclip</b> quando necessário e o <b style="color:#e2e8f0">Pi</b> executa por subagentes governados. Você revisa o resultado antes de valer — e tudo fica guardado na memória.</div>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="flow-head"><span class="flow-tag">3</span><span class="flow-title">Governança e acompanhamento</span></div>
+    <div class="chain">
+      <span class="node n-blue"><span class="e">📋</span>Paperclip</span><span class="arr">→</span>
+      <span class="node n-purple"><span class="e">🧠</span>Brain</span><span class="arr">→</span>
+      <span class="node n-yellow"><span class="e">✨</span>Lucy</span><span class="arr">→</span>
+      <span class="node n-blue"><span class="e">📋</span>Paperclip</span><span class="arr">→</span>
+      <span class="node n-purple"><span class="e">🗄️</span>Memória</span>
+    </div>
+    <div class="flow-note">A camada que <b>sabe o que está acontecendo</b>: acompanha tarefas, lista quem está ativo, aponta pendências e consolida o plano. Não precisa executar tudo — precisa ter a visão completa.</div>
+  </div>
+
+  <div class="footer">
+    <b>LucyOS</b> · Você → Bridge → Brain → (Lucy · Pi · Paperclip) → Memória &nbsp;·&nbsp; nada importante avança sem a sua aprovação.
+  </div>
+
+</div>
+</body>
+</html>
