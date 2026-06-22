@@ -180,7 +180,10 @@
   }
   @media (max-width: 500px) {
     body { padding: 12px 14px; }
-    .section, .box { min-width: 0 !important; width: 100%; }
+    .row { flex-direction: column; }
+    .arrow { display: none; }
+    .section, .box { min-width: 0 !important; max-width: none !important; }
+    .pwa-grid { grid-template-columns: 1fr; }
     .chain { gap: 4px; }
     .node { font-size: 11px; padding: 6px 9px; }
     .arr { font-size: 12px; }
